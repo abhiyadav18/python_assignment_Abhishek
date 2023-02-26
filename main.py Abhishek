@@ -1,0 +1,101 @@
+
+pip install Flask
+pip install Flask-GraphQL
+pip installGraphene
+
+from flask import Flask
+from flask_graphql import GraphQLView
+from flask_security import Security, SQLAlchemyUserDatastore, UserMixin, RoleMixin, login_required
+from flask_sqlalchemy import SQLAlchemy
+
+app = Flask(name)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/test.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SECRET_KEY'] = 'secret-key'
+app.config['SECURITY_PASSWORD_SALT'] = 'security-password-salt'
+
+db = SQLAlchemy(app)
+
+# Define the User and Role models
+roles_users = db.Table('roles_users',
+                       db.Column('user_id', db.Integer(), db.ForeignKey('user.id')),
+                       db.Column('role_id', db.Integer(), db.ForeignKey('role.id')))
+
+
+class Role(db.Model, RoleMixin):
+    id = db.Column(db.Integer(), primary_key=True)
+    name = db.Column(db.String(80), unique=True)
+    description = db.Column(db.String(255))
+
+
+class User(db.Model, UserMixin):
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(255), unique=True)
+    password = db.Column(db.String(255))
+    active = db.Column(db.Boolean())
+    confirmed_at = db.Column(db.DateTime())
+    roles = db.relationship('Role', secondary=roles_users,
+                            backref=db.backref('users', lazy='dynamic'))
+
+
+# Set up Flask-Security
+user_datastore = SQLAlchemyUserDatastore(db, User, Role)
+security = Security(app, user_datastore)
+
+import graphene
+
+class Todo(graphene.ObjectType):
+    id = graphene.Int()
+    title = graphene.String()
+    description = graphene.String()
+    time = graphene.String()
+    images = graphene.String()
+
+class Query(graphene.ObjectType):
+    todos = graphene.List(Todo)
+
+    @login_required
+    def resolve_todos(self, info):
+        # Query the database to retrieve all the todos for the current user
+        # Return the todos as a list of Todo objects
+        pass
+
+class CreateTodo(graphene.Mutation):
+    class Arguments:
+        title = graphene.String()
+        description = graphene.String()
+        time = graphene.String()
+
+    todo = graphene.Field(lambda: Todo)
+
+    @login_required
+    def mutate(self, info, title, description, time):
+        # Create a new Todo object in the database for the current user
+        # Return the newly created todo as a Todo object
+        pass
+
+class DeleteTodo(graphene.Mutation):
+    class Arguments:
+        id = graphene.Int()
+
+    success = graphene.Boolean()
+
+    @login_required
+    def mutate(self, info, id):
+        # Delete the Todo object with the given id from the database for the current user
+        # Return a success message
+        pass
+
+class UpdateTodo(graphene.Mutation):
+    class Arguments:
+        id = graphene.Int()
+        title = graphene.String()
+        description = graphene.String()
+        time = graphene.String()
+
+    todo = graphene.Field(lambda: Todo)
+
+    @login_required
+    def mutate(self, info, id, title=None, description=None, time=None):
+        # Update the Todo object with the given id in the database for the current user
+        # Return the updated todo as a Todo
